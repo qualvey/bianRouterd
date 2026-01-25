@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # =================配置区域=================
-# 请根据你的实际情况修改接口名称
-WAN_IF="eth1" # WAN 口
-LAN_IF="eth0" # LAN 口
+# 请根据你的实际情况修改接口名称，armbian 是end0(wan)和enp1s0(lan)
+WAN_IF="end0" 
+LAN_IF="enp1s0" 
 
 # LAN 口网络配置
 LAN_IP="10.0.0.1"
@@ -53,6 +53,7 @@ network:
       optional: true
     ${LAN_IF}:
       dhcp4: false
+      ignore-carrier: true
       addresses:
         - ${LAN_IP}/${LAN_NETMASK}
 EOF
@@ -107,23 +108,21 @@ mv /etc/dnsmasq.conf /etc/dnsmasq.conf.bak 2>/dev/null || true
 
 cat <<EOF >/etc/dnsmasq.conf
 # === 核心设置 ===
-# 禁用 DNS 功能，只提供 DHCP
-# 这避免了与 systemd-resolved (端口53) 的冲突
-port=0
 
 # 监听接口
 interface=${LAN_IF}
+bind-interfaces
+#dns转发给 systemd-resolved
+no-resolv
+server=127.0.0.53
 
 # === DHCP 设置 ===
 dhcp-range=${DHCP_START},${DHCP_END},${DHCP_LEASE}
 dhcp-option=3,${LAN_IP}   # 网关
 
 # 下发给客户端的 DNS 地址
-# 即使 dnsmasq 不跑 DNS，我们也要告诉客户端去哪里解析
-# 如果你后续跑 dae，客户端请求发给网关，dae 会在网关劫持
 dhcp-option=6,${CLIENT_DNS}
 
-bind-interfaces
 EOF
 
 systemctl restart dnsmasq
